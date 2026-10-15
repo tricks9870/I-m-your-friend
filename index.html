@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>All-in-One Voice App</title>
+  <title>All-in-One Voice App (Background Mode)</title>
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <style>
     * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
@@ -20,6 +20,11 @@
     }
     h1 { font-size: 1.3rem; margin: 0 0 8px 0; color: #38bdf8; }
     p { font-size: 0.85rem; color: #94a3b8; margin: 0 0 14px 0; }
+    .badge {
+      display: inline-block; background: #065f46; color: #6ee7b7;
+      font-size: 0.75rem; padding: 4px 10px; border-radius: 20px;
+      margin-bottom: 12px; display: none;
+    }
     .code-box {
       font-size: 1.8rem; font-weight: bold; letter-spacing: 4px;
       background: #0f172a; color: #4ade80;
@@ -56,6 +61,7 @@
 
   <div class="card">
     <h1>🎙️🎧 All-in-One Live Voice</h1>
+    <div id="bgBadge" class="badge">🔒 Background Audio Active</div>
     <p>Create a room OR join a room below. Both phones can talk, listen, and save voice recordings in this single app.</p>
 
     <button id="createBtn" class="btn-create" onclick="startRoom()">1. Create Room (Get Code)</button>
@@ -72,7 +78,7 @@
 
     <div id="statusText" class="status">Status: Ready</div>
     <div id="downloads"></div>
-    <audio id="remoteAudio" autoplay playsinline style="display:none;"></audio>
+    <audio id="remoteAudio" autoplay playsinline></audio>
   </div>
 
   <script>
@@ -83,12 +89,38 @@
     let recordedChunks = [];
     let isMuted = false;
     let isRecording = false;
+    let wakeLock = null;
     const PREFIX = "allinone-voice-";
+
+    async function enableBackgroundMode() {
+      document.getElementById('bgBadge').style.display = 'inline-block';
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLock = await navigator.wakeLock.request('screen');
+        }
+      } catch (e) {}
+
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: 'Live Voice Active',
+          artist: 'All-in-One Voice App',
+          album: 'Background Stream'
+        });
+        navigator.mediaSession.playbackState = 'playing';
+      }
+    }
+
+    document.addEventListener('visibilitychange', async () => {
+      if (wakeLock !== null && document.visibilityState === 'visible') {
+        try { wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {}
+      }
+    });
 
     async function getMic() {
       if (!localStream) {
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       }
+      await enableBackgroundMode();
       return localStream;
     }
 
@@ -144,6 +176,7 @@
         const audio = document.getElementById('remoteAudio');
         audio.srcObject = remoteStream;
         audio.play();
+        enableBackgroundMode();
         document.getElementById('statusText').innerText = "🔊 Connected! Both phones can talk & listen.";
         document.getElementById('recBtn').style.display = 'block';
         showControls();
@@ -196,5 +229,4 @@
     }
   </script>
 </body>
-  </html>
-  
+</html>
